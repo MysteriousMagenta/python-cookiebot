@@ -1,0 +1,17 @@
+[CookieBot]
+# Boolean, if to fill up missing cookies with clicks. [Recommended: True]
+click_missing=True
+# Integer, how many iterations to save to. [Recommended: 5]
+save_every=5
+# Integer, how many seconds to sleep inbetween iterations. [Recommended: 2]
+sleep_amount=2
+# Integer, how many chips you want inbetween resets. [Recommended: 10]
+reset_every=10
+# String, the url of cookie clicker. You shouldn't change this. [Recommended: "http://orteil.dashnet.org/cookieclicker/"]
+url="http://orteil.dashnet.org/cookieclicker/"
+# List, what upgrades to not buy. [Recommended: ["one mind"] for no grandmapocalypse]
+excluded_upgrades=["one mind"]
+# String, where to find the driver binary file. Leave blank if you don't know/don't need it.
+binary_path=""
+# String, where to save your save string. [Recommended: "savefile.txt"]
+savefile_path="savefile.txt"

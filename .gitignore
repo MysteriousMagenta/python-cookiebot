@@ -3,3 +3,6 @@
 
 savefile.txt
 
+__pycache__/
+
+config.txt

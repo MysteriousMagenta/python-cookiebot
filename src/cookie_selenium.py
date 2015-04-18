@@ -24,33 +24,25 @@ class CookieException(Exception):
 
 
 class CookieBot(object):
-    # To be used in a later update.
-    # Mostly for resetting.
     chip_amount = None
-    click_missing = False
-    save_every = 5  # Iterations
-    sleep_amount = 2  # Seconds
-    url = "http://orteil.dashnet.org/cookieclicker/"
-    # What upgrades to not buy. Can also be modified outside the class!
-    excluded_upgrades = ["one mind"]
 
-    def __init__(self, driver_type, save_to, **kwargs):
+    def __init__(self, driver_type, config):
         """
         Initializes a CookieBot instance
         Arguments:
             driver_type: What driver to use, e.g Chrome/ or PhantomJS
             save_to: Where to load/save the savefile.
-        KwArg List:
-            path: Where to find the driver binary file.
+
         """
-        if "path" in kwargs and kwargs["path"]:
-            self.browser = driver_type(kwargs["path"])
+        if config["binary_path"]:
+            self.browser = driver_type(config["binary_path"])
         else:
             self.browser = driver_type()
 
-        self.location = save_to
+        self.location = config["savefile_path"]
         self.running = True
         self.save_string = None
+        self.config = config
         self.bought = 0
         self.start()
 
@@ -60,7 +52,7 @@ class CookieBot(object):
         There's no need to call this, since it's called in __init__
         """
         self.browser.maximize_window()
-        self.browser.get(CookieBot.url)
+        self.browser.get(self.config["url"])
         # For some reason even if I waited for bigCookie it would still crash.
         WebDriverWait(self.browser, 60).until(
             expected_conditions.title_contains(
@@ -98,7 +90,7 @@ class CookieBot(object):
                 if optimal["price"] > money:
                     difference = optimal["price"] - money
                     print("[-] Missing {} money!".format(difference))
-                    if CookieBot.click_missing:
+                    if self.config["click_missing"]:
                         for _ in range(int(ceil(difference))):
                             self.click_golden()
                             self.click_cookie()
@@ -107,10 +99,10 @@ class CookieBot(object):
                 self.browser.execute_script(optimal["buy"])
             else:
                 self.click_cookie(5)
-            time.sleep(CookieBot.sleep_amount)
+            time.sleep(self.config["sleep_amount"])
 
             iterations += 1
-            if iterations >= CookieBot.save_every:
+            if iterations >= self.config["save_every"]:
                 print("[+] Saved!")
                 self.save_string = self.get_save_string()
                 iterations = 0
@@ -209,7 +201,7 @@ class CookieBot(object):
             script_ = "return Game.UpgradesInStore[{}]".format(i)
             info = self.browser.execute_script(script_)
             name = info["name"]
-            if name.lower() in CookieBot.excluded_upgrades:
+            if name.lower() in self.config["excluded_upgrades"]:
                 continue
             price = self.browser.execute_script(script_ + ".getPrice()")
             buy = script_ + ".buy(1)"
