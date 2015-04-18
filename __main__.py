@@ -1,9 +1,7 @@
 import src
 from selenium.webdriver import *
 driver = Chrome
-location = "savefile.txt"
-path = ""
-if path:
-    src.main(driver, location, path)
-else:
-    src.main(driver, location)
+config_name = "config.txt"
+with open(config_name) as config_file:
+    config = src.parse_file(config_file)
+src.main(driver, config)
