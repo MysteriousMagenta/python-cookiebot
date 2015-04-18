@@ -33,5 +33,7 @@ def parse_file(file_obj):
     file_obj.seek(0)
     chosen = {}
     for line in file_obj:
+        if line.startswith("#"):
+            continue
         parse_line(line, chosen)
     return chosen
