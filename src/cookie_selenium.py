@@ -233,6 +233,9 @@ class CookieBot(object):
         if options:
             return min(options, key=lambda x: x["ratio"])
 
+    def reset_viable(self):
+        pass
+
     # Helper methods for saving and loading.
     def get_save_string(self):
         """
