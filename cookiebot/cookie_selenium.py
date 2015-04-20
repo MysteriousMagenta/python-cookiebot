@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from __future__ import print_function, division, with_statement
 import time
 import re
 import sys
@@ -75,10 +76,10 @@ class CookieBot(object):
             self.close_notifications()
             money = self.get_money()
             mps = self.get_money_per_second()
-            print("[+] Have {} money and {}/money per second, upgrades so far: {}".format(
+            print("[+] Have {} money and {}/money per second, chips so far: {}".format(
                 money,
                 mps,
-                self.browser.execute_script("return Game.UpgradesOwned")
+                self.get_chips()
                 )
             )
             best_building = self.get_best_building()
@@ -143,18 +144,13 @@ class CookieBot(object):
         """
         Gets how much "money" you have.
         """
-        money_string = self.browser.find_element_by_id("cookies").text
-        effective = money_string.splitlines()[0].replace(",", "").replace("cookies", "").replace("cookie", "").strip()
-        return float(effective)
+        return float(self.browser.execute_script("return Game.cookies"))
 
     def get_money_per_second(self):
         """
         Gets how much cookies per second you have.
         """
-        money_string = self.browser.find_element_by_id("cookies").text
-        effective = money_string.splitlines()[1].replace("per second : ", "").replace(",", "").strip()
-        effective = float(effective)
-        return effective
+        return float(self.browser.execute_script("return Game.cookiesPs"))
 
     def get_golden(self, local=True):
         """
@@ -225,8 +221,21 @@ class CookieBot(object):
         if options:
             return min(options, key=lambda x: x["ratio"])
 
+    def get_chips(self):
+        if CookieBot.chip_amount is not None:
+            return CookieBot.chip_amount / self.get_money()
+        return 0
+
     def reset_viable(self):
-        pass
+        if CookieBot.chip_amount is not None:
+            return self.get_chips() >= self.config["reset_every"]
+        return False
+
+    def reset(self, override=False):
+        if override or self.reset_viable():
+            print("[+] Resetting!")
+            self.browser.execute_script("Game.Reset()")
+            self.browser.find_element_by_id("promptOption0").click()
 
     # Helper methods for saving and loading.
     def get_save_string(self):
@@ -259,21 +268,14 @@ class CookieBot(object):
             with open(self.location, "w") as save_file:
                 save_file.write(self.save_string)
 
-    def _poof(self):
-
-        self.bought += 1
-
     def minimal(self):
         self.browser.execute_script("for (var k in Game.prefs) Game.prefs[k] = 0; Game.prefs[\"format\"] = 1")
         self.browser.execute_script(
             "Game.ToggleFancy();BeautifyAll();Game.RefreshStore();Game.upgradesToRebuild=1;")
 
 
-def main(driver_type, save_to, driver_path=""):
-    if driver_path:
-        bot = CookieBot(driver_type, save_to, path=driver_path)
-    else:
-        bot = CookieBot(driver_type, save_to)
+def main(driver_type, conf):
+    bot = CookieBot(driver_type, conf)
     try:
         bot.run()
     except (Exception, KeyboardInterrupt) as e:

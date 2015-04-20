@@ -3,6 +3,8 @@
 
 savefile.txt
 
+savefile.txt.bak
+
 __pycache__/
 
 config.txt
