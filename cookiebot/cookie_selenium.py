@@ -221,9 +221,10 @@ class CookieBot(object):
         if options:
             return min(options, key=lambda x: x["ratio"])
 
+    # noinspection PyTypeChecker
     def get_chips(self):
         if CookieBot.chip_amount is not None:
-            return CookieBot.chip_amount / self.get_money()
+            return self.get_money() / CookieBot.chip_amount
         return 0
 
     def reset_viable(self):
