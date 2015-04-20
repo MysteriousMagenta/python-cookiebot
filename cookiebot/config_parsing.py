@@ -1,3 +1,4 @@
+from __future__ import print_function, division, with_statement
 import re
 # Basic Regexes for each type.
 regex = {
