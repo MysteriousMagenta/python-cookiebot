@@ -182,7 +182,7 @@ class CookieBot(object):
                 "name": name,
                 "price": price,
                 "mps": mps,
-                "ratio": (price - self.get_money()) / self.get_money_per_second() or 1,
+                "ratio": (price - self.get_money()) / (self.get_money_per_second() or 1),
                 "buy": buy
             }
             buildings.append(i_dict)
@@ -206,7 +206,7 @@ class CookieBot(object):
             i_dict = {
                 "name": name,
                 "price": price,
-                "ratio": (price - self.get_money()) / self.get_money_per_second() or 1,
+                "ratio": (price - self.get_money()) / (self.get_money_per_second() or 1),
                 "buy": buy
             }
 
