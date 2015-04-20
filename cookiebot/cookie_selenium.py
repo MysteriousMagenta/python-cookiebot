@@ -100,13 +100,15 @@ class CookieBot(object):
                 self.browser.execute_script(optimal["buy"])
             else:
                 self.click_cookie(5)
-            time.sleep(self.config["sleep_amount"])
-
+            self.reset()  # Don't worry, it's auto-handled.
             iterations += 1
             if iterations >= self.config["save_every"]:
                 print("[+] Saved!")
                 self.save_string = self.get_save_string()
                 iterations = 0
+            time.sleep(self.config["sleep_amount"])
+
+
 
     def click_cookie(self, amount=1):
         """
@@ -224,7 +226,11 @@ class CookieBot(object):
     # noinspection PyTypeChecker
     def get_chips(self):
         if CookieBot.chip_amount is not None:
-            return self.get_money() / CookieBot.chip_amount
+            chips = self.get_money() / CookieBot.chip_amount
+            if chips < 0:
+                # Yikes!
+                return 0
+            return chips
         return 0
 
     def reset_viable(self):
