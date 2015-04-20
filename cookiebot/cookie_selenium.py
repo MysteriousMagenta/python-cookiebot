@@ -142,17 +142,17 @@ class CookieBot(object):
         """
         self.browser.execute_script("Game.CloseNotes()")
 
-    def get_money(self):
+    def get_money(self, full=False):
         """
         Gets how much "money" you have.
         """
-        return float(self.browser.execute_script("return Game.cookies"))
+        return ((lambda x: round(x, 2)) if not full else (lambda x: x))(float(self.browser.execute_script("return Game.cookies")))
 
-    def get_money_per_second(self):
+    def get_money_per_second(self, full=False):
         """
         Gets how much cookies per second you have.
         """
-        return float(self.browser.execute_script("return Game.cookiesPs"))
+        return ((lambda x: round(x, 2)) if not full else (lambda x: x))(float(self.browser.execute_script("return Game.cookiesPs")))
 
     def get_golden(self, local=True):
         """
@@ -227,7 +227,7 @@ class CookieBot(object):
     def get_chips(self):
         if CookieBot.chip_amount is not None:
             chips = self.get_money() / CookieBot.chip_amount
-            if chips < 0:
+            if chips < 0.001:
                 # Yikes!
                 return 0
             return chips
