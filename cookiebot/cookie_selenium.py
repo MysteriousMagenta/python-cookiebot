@@ -127,7 +127,8 @@ class CookieBot(object):
         cache = self.get_golden()
         self.browser.execute_script("Game.goldenCookie.click()")
         if self.get_golden() > cache:
-            print("[+] Pressed a Golden Cookie!")
+            effect = self.browser.execute_script("return Game.goldenCookie.last")
+            print("[+] Pressed a Golden Cookie with effect {}!".format(effect))
 
     def quit(self):
         """
@@ -291,6 +292,8 @@ def main(driver_type, conf):
         if isinstance(e, KeyboardInterrupt):
             pass
         elif not isinstance(e, CookieException):
+            with open("game.json", "w") as json_file:
+                json_file.write(str(bot.browser.execute_script("return Game")))
             print("[-] \aGot Exception: {}!".format(e.__class__.__name__))
             if input("Raise?> ").lower().strip().startswith("y"):
                 raise
