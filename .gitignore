@@ -5,6 +5,8 @@ savefile.txt
 
 savefile.txt.bak
 
+*.log
+
 __pycache__/
 
 config.txt
