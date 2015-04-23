@@ -123,18 +123,18 @@ class CookieBot(object):
         """
         Clicks a Golden Cookie if it's there.
         """
-        if self.golden_dt is not None and time.time() - self.golden_dt < .1:
-            self.echo("[-] Pressing Too Quick!")
-            return
+        #if self.golden_dt is not None and time.time() - self.golden_dt < .1:
+        #    self.echo("[-] Pressing Too Quick!")
+        #    return
         cache = self.get_golden()
         money = self.get_cookies()
         self.browser.execute_script("Game.goldenCookie.click()")
-
-        if self.get_golden() > cache:
+        pressed = self.get_golden()
+        if pressed > cache:
             effect = self.browser.execute_script("return Game.goldenCookie.last").lower()
             new = self.get_cookies()
             diff = max(new, money) - min(new, money)
-            self.echo("[+] Pressed a Golden Cookie with effect {} and difference in money {}!".format(effect, diff))
+            self.echo("[+] [{}] Pressed a Golden Cookie with effect {} and difference in money {}!".format(pressed, effect, diff))
             self.golden_dt = time.time()
             if "chain" in effect:
                 time.sleep(.1)
