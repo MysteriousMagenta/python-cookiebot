@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 from __future__ import print_function, division, with_statement
 try:
     import cookiebot
