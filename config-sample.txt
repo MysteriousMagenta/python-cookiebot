@@ -19,3 +19,5 @@ excluded_upgrades=["one mind"]
 binary_path=""
 # String, where to save your save string. [Recommended: "savefile.txt"]
 savefile_path="savefile.txt"
+# String, if to redirect output somewhere. Can be formatted with the date.
+output_file=File("", "a+")

@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 from __future__ import print_function, division, with_statement
+import random
 import time
 from datetime import datetime
 from math import ceil
 from urllib.error import URLError
+import atexit
 from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.support.wait import WebDriverWait
 
@@ -25,6 +27,7 @@ class CookieBot(object):
         self.location = config["savefile_path"]
         self.running = True
         self.save_string = None
+        self.first_print = None
         self.config = config
         self.bought = 0
         self.start()
@@ -47,11 +50,13 @@ class CookieBot(object):
         self.load_save_file()
         self.minimal()
 
+
     def run(self):
         """
         Runs the CookieBot.
         The self.running variable can also be edited by another thread to stop.
         """
+        self.echo("[+] Starting...")
         iterations = 0
         while self.running:
             self.click_golden()
@@ -100,7 +105,7 @@ class CookieBot(object):
         for i in range(amount):
             self.browser.execute_script("Game.ClickCookie()")
 
-    def click_golden(self, chain=False):
+    def click_golden(self, chain=0):
         """
         Clicks a Golden Cookie if it's there.
         """
@@ -112,12 +117,13 @@ class CookieBot(object):
             effect = self.browser.execute_script("return Game.goldenCookie.last").lower()
             new = self.get_cookies()
             diff = max(new, money) - min(new, money)
-            self.echo("[+] [{}] Pressed a Golden Cookie with effect {}!".format(pressed, effect, diff))
+            if not chain and "chain" not in effect:
+                self.echo("[+] Pressed a Golden Cookie with effect {}!".format(effect))
+            else:
+                self.echo("[+] [{}] Chaining {} Cookies, Bonus: {}".format(effect, chain+(1 if not chain else 0), diff))
             if "chain" in effect:
                 time.sleep(.1)
-                if not chain:
-                    self.echo("[+] Starting chain!")
-                self.click_golden(True)
+                self.click_golden(int(chain)+1)
 
     def quit(self):
         """
@@ -283,7 +289,19 @@ class CookieBot(object):
             "Game.ToggleFancy();BeautifyAll();Game.RefreshStore();Game.upgradesToRebuild=1;")
 
     def echo(self, *args, **kwargs):
+        if self.first_print is None:
+            self.first_print = datetime.today().strftime("%Y-%m-%d")
+        else:
+            out = self.config.get("output_file", "")
+            if out:
+                date = datetime.today().strftime("%Y-%m-%d")
+                new_name = out.raw_name.format(date)
+                if new_name != out.name:
+                    new = open(new_name, out.mode)
+                    self.config["output_file"] = new
+                    atexit.register(new.close)
         if self.config["verbose"]:
+            replaced = False
             extra = []
             if self.config["timestamp"]:
                 today = datetime.today()
@@ -291,7 +309,12 @@ class CookieBot(object):
                     extra.append("[{}]".format(today.strftime("%H:%M:%S")))
                 if "date" in self.config["timestamp"]:
                     extra.append("[{}]".format(today.strftime("%Y-%m-%d")))
+            if "file" not in kwargs and "output_file" in self.config and self.config["output_file"]:
+                kwargs.update({"file": self.config["output_file"]})
+                replaced = True
             print(*tuple(extra) + args, **kwargs)
+            if replaced and random.randint(1, 100) == 12:
+                self.config["output_file"].flush()
 
 
 def main(driver_type, conf):
