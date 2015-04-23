@@ -1,6 +1,10 @@
 [CookieBot]
 # Boolean, if to fill up missing cookies with clicks. [Recommended: True]
 click_missing=True
+# Boolean, if to print out what the bot is doing. [Reccomended: True]
+verbose=True
+# List, what to timestamp your verbose messages with. Options: Date, Time. [Reccomended: ["date", "time"]]
+timestamp=["date", "time"]
 # Integer, how many iterations to save to. [Recommended: 5]
 save_every=5
 # Integer, how many seconds to sleep inbetween iterations. [Recommended: 2]

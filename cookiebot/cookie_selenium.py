@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
+from __future__ import print_function, division, with_statement
 import time
 import re
-import sys
+from datetime import datetime
 from math import ceil
+from urllib.error import URLError
 from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.support.wait import WebDriverWait
 
 html_entities = re.compile("%[0-9a-fA-F][0-9a-fA-F]")
-mps_regex = re.compile("produces (.*?) cookies")
 
 
 def unescape_html(thing):
@@ -43,6 +44,7 @@ class CookieBot(object):
         self.running = True
         self.save_string = None
         self.config = config
+        self.golden_dt = None
         self.bought = 0
         self.start()
 
@@ -73,12 +75,12 @@ class CookieBot(object):
         while self.running:
             self.click_golden()
             self.close_notifications()
-            money = self.get_money()
-            mps = self.get_money_per_second()
-            print("[+] Have {} money and {}/money per second, upgrades so far: {}".format(
+            money = self.get_cookies()
+            mps = self.get_cookies_per_second()
+            self.echo("[+] Have {} cookies and {} cookies per second, heavenly chips so far: {}".format(
                 money,
                 mps,
-                self.browser.execute_script("return Game.UpgradesOwned")
+                self.get_chips()
                 )
             )
             best_building = self.get_best_building()
@@ -86,26 +88,27 @@ class CookieBot(object):
             things = filter(lambda x: x is not None, [best_building, best_upgrade])
             optimal = min(things, key=lambda x: x["ratio"])
             if optimal is not None:
-                print("[+] Buying {} with price {}".format(optimal["name"], optimal["price"]))
+                self.echo("[+] Buying {} with price {}".format(optimal["name"], optimal["price"]))
                 if optimal["price"] > money:
                     difference = optimal["price"] - money
-                    print("[-] Missing {} money!".format(difference))
+                    self.echo("[-] Missing {} money!".format(difference))
                     if self.config["click_missing"]:
                         for _ in range(int(ceil(difference))):
                             self.click_golden()
                             self.click_cookie()
-                            if self.get_money() >= optimal["price"]:
+                            if self.get_cookies() >= optimal["price"]:
                                 break
                 self.browser.execute_script(optimal["buy"])
             else:
                 self.click_cookie(5)
-            time.sleep(self.config["sleep_amount"])
-
+            self.reset()  # Don't worry, it's auto-handled.
             iterations += 1
             if iterations >= self.config["save_every"]:
-                print("[+] Saved!")
+                self.echo("[+] Saved!")
                 self.save_string = self.get_save_string()
                 iterations = 0
+            time.sleep(self.config["sleep_amount"])
+
 
     def click_cookie(self, amount=1):
         """
@@ -113,25 +116,46 @@ class CookieBot(object):
         Arguments:
             amount: How many times to press
         """
-        # TODO Convert this to JavaScript
-        for _ in range(amount or 1):
-            self.browser.find_element_by_id("bigCookie").click()
+        for i in range(amount):
+            self.browser.execute_script("Game.ClickCookie()")
 
-    def click_golden(self):
+    def click_golden(self, chain=False):
         """
         Clicks a Golden Cookie if it's there.
         """
+        #if self.golden_dt is not None and time.time() - self.golden_dt < .1:
+        #    self.echo("[-] Pressing Too Quick!")
+        #    return
         cache = self.get_golden()
+        money = self.get_cookies()
         self.browser.execute_script("Game.goldenCookie.click()")
-        if self.get_golden() > cache:
-            print("[+] Pressed a Golden Cookie!")
+        pressed = self.get_golden()
+        if pressed > cache:
+            effect = self.browser.execute_script("return Game.goldenCookie.last").lower()
+            new = self.get_cookies()
+            diff = max(new, money) - min(new, money)
+            self.echo("[+] [{}] Pressed a Golden Cookie with effect {}!".format(pressed, effect, diff))
+            self.golden_dt = time.time()
+            if "chain" in effect:
+                time.sleep(.1)
+                if not chain:
+                    self.echo("[+] Starting chain!")
+                self.click_golden(True)
+
 
     def quit(self):
         """
         Writes the save file and quits the browser.
         """
+        # I know this method is mostly useless.
+        # But I'll add more to it once I do have more to add to it.
         self.write_save_file()
-        self.browser.quit()
+        try:
+            self.browser.quit()
+        except URLError:
+            # This sometimes happens.
+            # I don't know why yet.
+            pass
 
     def close_notifications(self):
         """
@@ -139,22 +163,25 @@ class CookieBot(object):
         """
         self.browser.execute_script("Game.CloseNotes()")
 
-    def get_money(self):
+    def get_cookies(self, full=False):
         """
         Gets how much "money" you have.
         """
-        money_string = self.browser.find_element_by_id("cookies").text
-        effective = money_string.splitlines()[0].replace(",", "").replace("cookies", "").replace("cookie", "").strip()
-        return float(effective)
+        raw_cookies = self.browser.execute_script("return Game.cookies")
+        if full:
+            return raw_cookies
+        else:
+            return round(raw_cookies, 2)
 
-    def get_money_per_second(self):
+    def get_cookies_per_second(self, full=False):
         """
         Gets how much cookies per second you have.
         """
-        money_string = self.browser.find_element_by_id("cookies").text
-        effective = money_string.splitlines()[1].replace("per second : ", "").replace(",", "").strip()
-        effective = float(effective)
-        return effective
+        raw_cookiesps = self.browser.execute_script("return Game.cookiesPs")
+        if full:
+            return raw_cookiesps
+        else:
+            return round(raw_cookiesps, 2)
 
     def get_golden(self, local=True):
         """
@@ -184,7 +211,7 @@ class CookieBot(object):
                 "name": name,
                 "price": price,
                 "mps": mps,
-                "ratio": (price - self.get_money()) / self.get_money_per_second() or 1,
+                "ratio": (price - self.get_cookies()) / (self.get_cookies_per_second() or 1),
                 "buy": buy
             }
             buildings.append(i_dict)
@@ -208,7 +235,7 @@ class CookieBot(object):
             i_dict = {
                 "name": name,
                 "price": price,
-                "ratio": (price - self.get_money()) / self.get_money_per_second() or 1,
+                "ratio": (price - self.get_cookies()) / (self.get_cookies_per_second() or 1),
                 "buy": buy
             }
 
@@ -225,8 +252,23 @@ class CookieBot(object):
         if options:
             return min(options, key=lambda x: x["ratio"])
 
+    # noinspection PyTypeChecker
+    def get_chips(self):
+        if CookieBot.chip_amount is not None:
+            chips = self.get_cookies() / CookieBot.chip_amount
+            return chips
+        return 0
+
     def reset_viable(self):
-        pass
+        if CookieBot.chip_amount is not None:
+            return self.get_chips() >= self.config["reset_every"]
+        return False
+
+    def reset(self, override=False):
+        if override or self.reset_viable():
+            self.echo("[+] Resetting!")
+            self.browser.execute_script("Game.Reset()")
+            self.browser.find_element_by_id("promptOption0").click()
 
     # Helper methods for saving and loading.
     def get_save_string(self):
@@ -248,7 +290,7 @@ class CookieBot(object):
             with open(self.location) as save_file:
                 self.browser.find_element_by_id("textareaPrompt").send_keys(save_file.read())
         except FileNotFoundError:
-            print("[-] No savefile!")
+            self.echo("[-] No savefile!")
         self.browser.find_element_by_id("promptOption0").click()
 
     def write_save_file(self):
@@ -259,45 +301,29 @@ class CookieBot(object):
             with open(self.location, "w") as save_file:
                 save_file.write(self.save_string)
 
-    def _poof(self):
-
-        self.bought += 1
-
     def minimal(self):
         self.browser.execute_script("for (var k in Game.prefs) Game.prefs[k] = 0; Game.prefs[\"format\"] = 1")
         self.browser.execute_script(
             "Game.ToggleFancy();BeautifyAll();Game.RefreshStore();Game.upgradesToRebuild=1;")
 
+    def echo(self, *args, **kwargs):
+        if self.config["verbose"]:
+            extra = []
+            if self.config["timestamp"]:
+                today = datetime.today()
+                if "time" in self.config["timestamp"]:
+                    extra.append("[{}]".format(today.strftime("%H:%M:%S")))
+                if "date" in self.config["timestamp"]:
+                    extra.append("[{}]".format(today.strftime("%Y-%m-%d")))
+            print(*tuple(extra) + args, **kwargs)
 
-def main(driver_type, save_to, driver_path=""):
-    if driver_path:
-        bot = CookieBot(driver_type, save_to, path=driver_path)
-    else:
-        bot = CookieBot(driver_type, save_to)
+
+def main(driver_type, conf):
+    bot = CookieBot(driver_type, conf)
     try:
         bot.run()
-    except (Exception, KeyboardInterrupt) as e:
-        if sys.stdout != sys.__stdout__:
-            raise
-        if isinstance(e, KeyboardInterrupt):
-            pass
-        elif not isinstance(e, CookieException):
-            print("[-] \aGot Exception: {}!".format(e.__class__.__name__))
-            if input("Raise?> ").lower().strip().startswith("y"):
-                raise
-        else:
-            raise
+    except KeyboardInterrupt:
+        bot.echo("[-] Quitting...")
     finally:
-        try:
-            bot.quit()
-        except (Exception, KeyboardInterrupt) as e:
-            if sys.stdout != sys.__stdout__:
-                raise
-            if isinstance(e, KeyboardInterrupt):
-                pass
-            elif not isinstance(e, CookieException):
-                print("[-] \aGot Exception: {}!".format(e.__class__.__name__))
-                if input("Raise?> ").lower().strip().startswith("y"):
-                    raise
-            else:
-                raise
+        bot.quit()
+

@@ -1,3 +1,4 @@
+from __future__ import print_function, division, with_statement
 try:
     import cookiebot
 except ImportError:
@@ -8,5 +9,5 @@ from selenium.webdriver import *
 driver = Chrome
 config_name = "config.txt"
 with open(config_name) as config_file:
-    config = (cookiebot or cookiebot_config).parse_file(config_file)
+    config = (cookiebot or cookiebot_config).parse_file(config_file)["CookieBot"]
 (cookiebot or cookiebot_bot).main(driver, config)
