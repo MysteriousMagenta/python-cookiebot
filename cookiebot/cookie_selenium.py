@@ -134,7 +134,7 @@ class CookieBot(object):
             effect = self.browser.execute_script("return Game.goldenCookie.last").lower()
             new = self.get_cookies()
             diff = max(new, money) - min(new, money)
-            self.echo("[+] [{}] Pressed a Golden Cookie with effect {} and difference in money {}!".format(pressed, effect, diff))
+            self.echo("[+] [{}] Pressed a Golden Cookie with effect {}!".format(pressed, effect, diff))
             self.golden_dt = time.time()
             if "chain" in effect:
                 time.sleep(.1)
