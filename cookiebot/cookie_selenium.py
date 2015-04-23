@@ -1,27 +1,11 @@
 #!/usr/bin/env python3
 from __future__ import print_function, division, with_statement
 import time
-import re
 from datetime import datetime
 from math import ceil
 from urllib.error import URLError
 from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.support.wait import WebDriverWait
-
-html_entities = re.compile("%[0-9a-fA-F][0-9a-fA-F]")
-
-
-def unescape_html(thing):
-    new_string = thing
-    for i in set(html_entities.findall(new_string)):
-        value = int(i.replace("%", "", 1), 16)
-        ascii_char = chr(value)
-        new_string = new_string.replace(("%" if not i.startswith("%") else "") + i, ascii_char)
-    return new_string
-
-
-class CookieException(Exception):
-    pass
 
 
 class CookieBot(object):
@@ -31,20 +15,17 @@ class CookieBot(object):
         """
         Initializes a CookieBot instance
         Arguments:
-            driver_type: What driver to use, e.g Chrome/ or PhantomJS
+            driver_type: What driver to use, e.g Chrome or PhantomJS
             save_to: Where to load/save the savefile.
-
         """
         if config["binary_path"]:
             self.browser = driver_type(config["binary_path"])
         else:
             self.browser = driver_type()
-
         self.location = config["savefile_path"]
         self.running = True
         self.save_string = None
         self.config = config
-        self.golden_dt = None
         self.bought = 0
         self.start()
 
@@ -88,7 +69,10 @@ class CookieBot(object):
             things = filter(lambda x: x is not None, [best_building, best_upgrade])
             optimal = min(things, key=lambda x: x["ratio"])
             if optimal is not None:
-                self.echo("[+] [{}] Buying {} with price {} and mps {}".format(optimal["ratio"], optimal["name"], optimal["price"], optimal["mps"]))
+                self.echo("[+] [{}] Buying {} with price {} and mps {}".format(optimal["ratio"],
+                                                                               optimal["name"],
+                                                                               optimal["price"],
+                                                                               optimal["mps"]))
                 if optimal["price"] > money:
                     difference = optimal["price"] - money
                     self.echo("[-] Missing {} money!".format(difference))
@@ -109,7 +93,6 @@ class CookieBot(object):
                 iterations = 0
             time.sleep(self.config["sleep_amount"])
 
-
     def click_cookie(self, amount=1):
         """
         Clicks the Big Cookie, giving you one cookie for each press.
@@ -123,9 +106,6 @@ class CookieBot(object):
         """
         Clicks a Golden Cookie if it's there.
         """
-        #if self.golden_dt is not None and time.time() - self.golden_dt < .1:
-        #    self.echo("[-] Pressing Too Quick!")
-        #    return
         cache = self.get_golden()
         money = self.get_cookies()
         self.browser.execute_script("Game.goldenCookie.click()")
@@ -135,13 +115,11 @@ class CookieBot(object):
             new = self.get_cookies()
             diff = max(new, money) - min(new, money)
             self.echo("[+] [{}] Pressed a Golden Cookie with effect {}!".format(pressed, effect, diff))
-            self.golden_dt = time.time()
             if "chain" in effect:
                 time.sleep(.1)
                 if not chain:
                     self.echo("[+] Starting chain!")
                 self.click_golden(True)
-
 
     def quit(self):
         """
@@ -177,11 +155,11 @@ class CookieBot(object):
         """
         Gets how much cookies per second you have.
         """
-        raw_cookiesps = self.browser.execute_script("return Game.cookiesPs")
+        raw_cookies_per_second = self.browser.execute_script("return Game.cookiesPs")
         if full:
-            return raw_cookiesps
+            return raw_cookies_per_second
         else:
-            return round(raw_cookiesps, 2)
+            return round(raw_cookies_per_second, 2)
 
     def get_golden(self, local=True):
         """
@@ -326,4 +304,3 @@ def main(driver_type, conf):
         bot.echo("[-] Quitting...")
     finally:
         bot.quit()
-
