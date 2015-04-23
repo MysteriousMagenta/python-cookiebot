@@ -211,7 +211,7 @@ class CookieBot(object):
                 "name": name,
                 "price": price,
                 "mps": mps,
-                "ratio": mps / price,
+                "ratio": (price - self.get_cookies()) / (self.get_cookies_per_second() or 1),
                 "buy": buy
             }
             buildings.append(i_dict)
