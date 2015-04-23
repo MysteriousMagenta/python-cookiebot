@@ -88,7 +88,7 @@ class CookieBot(object):
             things = filter(lambda x: x is not None, [best_building, best_upgrade])
             optimal = min(things, key=lambda x: x["ratio"])
             if optimal is not None:
-                self.echo("[+] Buying {} with price {}".format(optimal["name"], optimal["price"]))
+                self.echo("[+] [{}] Buying {} with price {} and mps {}".format(optimal["ratio"], optimal["name"], optimal["price"], optimal["mps"]))
                 if optimal["price"] > money:
                     difference = optimal["price"] - money
                     self.echo("[-] Missing {} money!".format(difference))
