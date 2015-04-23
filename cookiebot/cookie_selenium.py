@@ -315,7 +315,7 @@ class CookieBot(object):
                     extra.append("[{}]".format(today.strftime("%H:%M:%S")))
                 if "date" in self.config["timestamp"]:
                     extra.append("[{}]".format(today.strftime("%Y-%m-%d")))
-            print(*extra + args, **kwargs)
+            print(*tuple(extra) + args, **kwargs)
 
 
 def main(driver_type, conf):
