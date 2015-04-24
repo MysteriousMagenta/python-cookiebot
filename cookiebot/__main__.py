@@ -11,12 +11,16 @@ driver = Chrome
 config_name = "config.txt"
 # If somebody forgets to rename it.
 fallback_config = "config-sample.txt"
-try:
-    config_file = open(config_name)
-except FileNotFoundError:
-    config_file = open(fallback_config)
+def main(run_for=None):
+    try:
+        config_file = open(config_name)
+    except FileNotFoundError:
+        config_file = open(fallback_config)
 
-config = (cookiebot or cookiebot_config).parse_file(config_file)["CookieBot"]
-config_file.close()
+    config = (cookiebot or cookiebot_config).parse_file(config_file)["CookieBot"]
+    config_file.close()
 
-(cookiebot or cookiebot_bot).main(driver, config)
+    (cookiebot or cookiebot_bot).main(driver, config, run_for)
+
+if __name__ == '__main__':
+    main()

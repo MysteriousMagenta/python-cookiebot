@@ -2,10 +2,10 @@
 from __future__ import print_function, division, with_statement
 import random
 import time
+import atexit
 from datetime import datetime
 from math import ceil
 from urllib.error import URLError
-import atexit
 from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.support.wait import WebDriverWait
 
@@ -51,14 +51,15 @@ class CookieBot(object):
         self.minimal()
 
 
-    def run(self):
+    def run(self, until=None):
         """
         Runs the CookieBot.
         The self.running variable can also be edited by another thread to stop.
         """
         self.echo("[+] Starting...")
         iterations = 0
-        while self.running:
+        true_iters = 0
+        while self.running and (until is None or true_iters <= until):
             self.click_golden()
             self.close_notifications()
             money = self.get_cookies()
@@ -94,6 +95,7 @@ class CookieBot(object):
                 self.echo("[+] Saved!")
                 self.save_string = self.get_save_string()
                 iterations = 0
+            true_iters += 1
             time.sleep(self.config["sleep_amount"])
 
     def click_cookie(self, amount=1):
@@ -101,13 +103,19 @@ class CookieBot(object):
         Clicks the Big Cookie, giving you one cookie for each press.
         Arguments:
             amount: How many times to press
+        Effect:
+            A Cookie is added for each press.
         """
         for i in range(amount):
             self.browser.execute_script("Game.ClickCookie()")
 
     def click_golden(self, chain=0):
         """
-        Clicks a Golden Cookie if it's there.
+        Clicks a Golden Cookie.
+        Arguments:
+            chain: At what step we are in the chain, it's best to just leave this at 0. It's automacally changed.
+        Effect:
+            Clicks a Golden Cookie, and keeps pressing if a chain started.
         """
         cache = self.get_golden()
         money = self.get_cookies()
@@ -120,7 +128,7 @@ class CookieBot(object):
             if not chain and "chain" not in effect:
                 self.echo("[+] Pressed a Golden Cookie with effect {}!".format(effect))
             else:
-                self.echo("[+] [{}] Chaining {} Cookies, Bonus: {}".format(effect, chain+(1 if not chain else 0), diff))
+                self.echo("[+] Chaining {} Cookies, Bonus: {}".format(effect, chain, diff))
             if "chain" in effect:
                 time.sleep(.1)
                 self.click_golden(int(chain)+1)
@@ -147,7 +155,11 @@ class CookieBot(object):
 
     def get_cookies(self, full=False):
         """
-        Gets how much "money" you have.
+        Returns the amount of cookies owned
+        Arguments:
+            full: If to return the full amount, or round to 2 decimal places.
+        Return:
+            The amount of cookies owned.
         """
         raw_cookies = self.browser.execute_script("return Game.cookies")
         if full:
@@ -157,7 +169,11 @@ class CookieBot(object):
 
     def get_cookies_per_second(self, full=False):
         """
-        Gets how much cookies per second you have.
+        Returns the amount of cookies per second earned.
+        Arguments:
+            full: If to return the ufll amount, or round to 2 decimal places.
+        Return:
+            The amount of cookies per second earned.
         """
         raw_cookies_per_second = self.browser.execute_script("return Game.cookiesPs")
         if full:
@@ -171,6 +187,8 @@ class CookieBot(object):
         Can either be "in this session" or "all time"
         Arguments:
             local: If to get this session's or all time's
+        Return:
+            How many Golden Cookies you have pressed.
         """
         golden_script = "return Game.goldenClicksLocal" if local else "return Game.goldenClicks"
         return self.browser.execute_script(golden_script)
@@ -178,7 +196,17 @@ class CookieBot(object):
     def get_buildings(self):
         """
         Gets all the buildings, and returns back an useful dict.
-        Can be easily expanded.
+        Return:
+            List, representing all buildings
+        Building Dictionary Structure
+        {
+            name: The name of the building, useful for displaying.
+            price: How much the building costs, in cookies.
+            mps: How many cookies per seconds this building produces.
+            ratio: The ratio of how long it'll take to get this building
+            buy: The JavaScript to execute to buy this building.
+        }
+ 
         """
         buildings = []
         for i in range(11):
@@ -201,7 +229,16 @@ class CookieBot(object):
 
     def get_upgrades(self):
         """
-        Gets the upgrades, in the same manner as the buildings.
+        Gets the upgrades list and returns a dick
+        Return:
+            A List, with dicts representing the upgrades
+        Upgrade Dictionary Structure:
+        {
+            name: The name of the upgrade, useful for displaying.
+            price: The price of the upgrade, in cookies.
+            ratio: How much time it will take to buy this upgrade.
+            buy: The JavaScript to execute to buy this upgrade.
+        }
         """
         upgrades = []
         available = self.browser.execute_script("return Game.UpgradesInStore")
@@ -225,28 +262,55 @@ class CookieBot(object):
         return upgrades
 
     def get_best_building(self):
+        """
+        Gets the optimal building.
+        Return:
+            The Building with the lowest ratio.
+        """
         options = self.get_buildings()
         if options:
             return min(options, key=lambda x: x["ratio"])
 
     def get_best_upgrade(self):
+        """
+        Gets the optimal upgrade.
+        Return:
+            The Upgrade with the lowest ratio.
+        """
         options = self.get_upgrades()
         if options:
             return min(options, key=lambda x: x["ratio"])
 
     # noinspection PyTypeChecker
     def get_chips(self):
+        """
+        Gets how many Heavenly Chips you've made.
+        Return:
+            Amount of Heavenly Chips made.
+        """
         if CookieBot.chip_amount is not None:
             chips = self.get_cookies() / CookieBot.chip_amount
             return chips
         return 0
 
     def reset_viable(self):
+        """
+        If a reset should be done.
+        Return:
+            A Boolean representing wether to reset or not.
+        """
         if CookieBot.chip_amount is not None:
             return self.get_chips() >= self.config["reset_every"]
         return False
 
     def reset(self, override=False):
+        """
+        Resets the game, gaining all chips.
+        Arguments:
+            override: The function normally checks if a reset is viable, but you can just override that with this argument.
+        Effect:
+            The Game is Reset, setting process back to square zero, but getting Heavenly Chips.
+        """
         if override or self.reset_viable():
             self.echo("[+] Resetting!")
             self.browser.execute_script("Game.Reset()")
@@ -256,6 +320,8 @@ class CookieBot(object):
     def get_save_string(self):
         """
         Gets the save-string needed to restore the save.
+        Return:
+            A string, representing your savefile!
         """
         self.browser.execute_script("Game.ExportSave()")
         save_zone = self.browser.find_element_by_id("textareaPrompt")
@@ -266,6 +332,8 @@ class CookieBot(object):
     def load_save_file(self):
         """
         Loads the savefile easily.
+        Effect:
+            Loads the game.
         """
         self.browser.execute_script("Game.ImportSave()")
         try:
@@ -284,11 +352,26 @@ class CookieBot(object):
                 save_file.write(self.save_string)
 
     def minimal(self):
+        """
+        Makes the game as resource-friendly as possible.
+        Effect:
+            Disables all fancy-smancy settings.
+        """
         self.browser.execute_script("for (var k in Game.prefs) Game.prefs[k] = 0; Game.prefs[\"format\"] = 1")
         self.browser.execute_script(
             "Game.ToggleFancy();BeautifyAll();Game.RefreshStore();Game.upgradesToRebuild=1;")
 
     def echo(self, *args, **kwargs):
+        """
+        Prints out a message, if verbose flag is set to true.
+        Arguments:
+            args: What to print out, will be passed directly to print, alongside extras.
+            kwargs: What to prin tout, will be pased directly to print.
+        Effect:
+            Print out some things, if verbose flag is set to true.
+        Extras:
+            timestamp: When the message was echoed, useful if you use a logfile7etc.
+        """
         if self.first_print is None:
             self.first_print = datetime.today().strftime("%Y-%m-%d")
         else:
@@ -298,8 +381,10 @@ class CookieBot(object):
                 new_name = out.raw_name.format(date)
                 if new_name != out.name:
                     new = open(new_name, out.mode)
+                    new.raw_name = out.raw_name
                     self.config["output_file"] = new
                     atexit.register(new.close)
+                    self.echo("[+] New Day!")
         if self.config["verbose"]:
             replaced = False
             extra = []
@@ -317,10 +402,16 @@ class CookieBot(object):
                 self.config["output_file"].flush()
 
 
-def main(driver_type, conf):
+def main(driver_type, conf, run_for=None):
+    """
+    Easiest way to run the bot.
+    Arguments:
+        driver_type: What driver to use, reccomended is Chrome or PhantomJS.
+        conf: The config, as seen in config.ini/config.txt
+    """
     bot = CookieBot(driver_type, conf)
     try:
-        bot.run()
+        bot.run(run_for)
     except KeyboardInterrupt:
         bot.echo("[-] Quitting...")
     finally:

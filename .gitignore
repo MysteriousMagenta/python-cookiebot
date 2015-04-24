@@ -5,7 +5,7 @@ savefile.txt
 
 savefile.txt.bak
 
-*.log
+logs/
 
 __pycache__/
 
