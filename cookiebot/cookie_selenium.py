@@ -50,16 +50,14 @@ class CookieBot(object):
         self.load_save_file()
         self.minimal()
 
-
-    def run(self, until=None):
+    def run(self):
         """
         Runs the CookieBot.
-        The self.running variable can also be edited by another thread to stop.
+        Stoppable by setting self.running to False (Don't ask me how).
         """
         self.echo("[+] Starting...")
         iterations = 0
-        true_iters = 0
-        while self.running and (until is None or true_iters <= until):
+        while self.running:
             self.click_golden()
             self.close_notifications()
             money = self.get_cookies()
@@ -68,7 +66,7 @@ class CookieBot(object):
                 money,
                 mps,
                 self.get_chips()
-                )
+            )
             )
             best_building = self.get_best_building()
             best_upgrade = self.get_best_upgrade()
@@ -95,7 +93,6 @@ class CookieBot(object):
                 self.echo("[+] Saved!")
                 self.save_string = self.get_save_string()
                 iterations = 0
-            true_iters += 1
             time.sleep(self.config["sleep_amount"])
 
     def click_cookie(self, amount=1):
@@ -113,7 +110,7 @@ class CookieBot(object):
         """
         Clicks a Golden Cookie.
         Arguments:
-            chain: At what step we are in the chain, it's best to just leave this at 0. It's automacally changed.
+            chain: At what step we are in the chain, it's best to just leave this at 0. It's automatically changed.
         Effect:
             Clicks a Golden Cookie, and keeps pressing if a chain started.
         """
@@ -131,7 +128,7 @@ class CookieBot(object):
                 self.echo("[+] Chaining {} Cookies, Bonus: {}".format(effect, chain, diff))
             if "chain" in effect:
                 time.sleep(.1)
-                self.click_golden(int(chain)+1)
+                self.click_golden(int(chain) + 1)
 
     def quit(self):
         """
@@ -171,7 +168,7 @@ class CookieBot(object):
         """
         Returns the amount of cookies per second earned.
         Arguments:
-            full: If to return the ufll amount, or round to 2 decimal places.
+            full: If to return the full amount, or round to 2 decimal places.
         Return:
             The amount of cookies per second earned.
         """
@@ -297,7 +294,7 @@ class CookieBot(object):
         """
         If a reset should be done.
         Return:
-            A Boolean representing wether to reset or not.
+            A Boolean representing whether to reset or not.
         """
         if CookieBot.chip_amount is not None:
             return self.get_chips() >= self.config["reset_every"]
@@ -307,7 +304,7 @@ class CookieBot(object):
         """
         Resets the game, gaining all chips.
         Arguments:
-            override: The function normally checks if a reset is viable, but you can just override that with this argument.
+            override: Resets no matter what.
         Effect:
             The Game is Reset, setting process back to square zero, but getting Heavenly Chips.
         """
@@ -355,7 +352,7 @@ class CookieBot(object):
         """
         Makes the game as resource-friendly as possible.
         Effect:
-            Disables all fancy-smancy settings.
+            Disables all fancy settings.
         """
         self.browser.execute_script("for (var k in Game.prefs) Game.prefs[k] = 0; Game.prefs[\"format\"] = 1")
         self.browser.execute_script(
@@ -366,7 +363,7 @@ class CookieBot(object):
         Prints out a message, if verbose flag is set to true.
         Arguments:
             args: What to print out, will be passed directly to print, alongside extras.
-            kwargs: What to prin tout, will be pased directly to print.
+            kwargs: What to print out, will be passed directly to print.
         Effect:
             Print out some things, if verbose flag is set to true.
         Extras:
@@ -402,16 +399,16 @@ class CookieBot(object):
                 self.config["output_file"].flush()
 
 
-def main(driver_type, conf, run_for=None):
+def main(driver_type, conf):
     """
     Easiest way to run the bot.
     Arguments:
-        driver_type: What driver to use, reccomended is Chrome or PhantomJS.
+        driver_type: What driver to use, recommended is Chrome or PhantomJS.
         conf: The config, as seen in config.ini/config.txt
     """
     bot = CookieBot(driver_type, conf)
     try:
-        bot.run(run_for)
+        bot.run()
     except KeyboardInterrupt:
         bot.echo("[-] Quitting...")
     finally:
