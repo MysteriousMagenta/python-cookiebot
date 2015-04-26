@@ -1,26 +1,21 @@
 #!/usr/bin/env python3
-from __future__ import print_function, division, with_statement
-try:
-    import cookiebot
-except ImportError:
-    cookiebot = None
-    import cookie_selenium as cookiebot_bot
-    import config_parsing as cookiebot_config
+import cookiebot
 from selenium.webdriver import *
 driver = Chrome
-config_name = "config.txt"
-# If somebody forgets to rename it.
-fallback_config = "config-sample.txt"
-def main():
-    try:
-        config_file = open(config_name)
-    except FileNotFoundError:
-        config_file = open(fallback_config)
-
-    config = (cookiebot or cookiebot_config).parse_file(config_file)["CookieBot"]
-    config_file.close()
-
-    (cookiebot or cookiebot_bot).main(driver, config)
+# What config names to try.
+configs = ("config.txt", "config.ini", "config-sample.txt", "config-sample.ini")
+def main(save_on_exit=True):
+    for n, name in enumerate(configs, start=1):
+        try:
+            config_file = open(name)
+        except IOError as e:
+            if n == len(configs):
+                raise e.__class__("No Config Was Found!")
+        else:
+            with config_file:
+                config = cookiebot.parse_file(config_file)["CookieBot"]
+            cookiebot.CookieBot.start_bot(driver, config, save_on_exit)
+            return
 
 if __name__ == '__main__':
     main()

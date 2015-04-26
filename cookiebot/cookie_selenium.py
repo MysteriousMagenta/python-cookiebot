@@ -1,13 +1,21 @@
 #!/usr/bin/env python3
 from __future__ import print_function, division, with_statement
-import random
 import time
-import atexit
+import re
 from datetime import datetime
 from math import ceil
 from urllib.error import URLError
 from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.support.wait import WebDriverWait
+
+date_finder = re.compile("\d+-[0-1][0-9]-[0-3][0-9]")
+
+
+def get_date(kind):
+    if kind == "date":
+        return datetime.today().strftime("%Y-%m-%d")
+    elif kind == "time":
+        return datetime.today().strftime("%H:%M:%S")
 
 
 class CookieBot(object):
@@ -20,7 +28,7 @@ class CookieBot(object):
             driver_type: What driver to use, e.g Chrome or PhantomJS
             save_to: Where to load/save the savefile.
         """
-        if config["binary_path"]:
+        if config.get("binary_path"):
             self.browser = driver_type(config["binary_path"])
         else:
             self.browser = driver_type()
@@ -38,7 +46,7 @@ class CookieBot(object):
         There's no need to call this, since it's called in __init__
         """
         self.browser.maximize_window()
-        self.browser.get(self.config["url"])
+        self.browser.get(self.config.get("url", ""))
         # For some reason even if I waited for bigCookie it would still crash.
         WebDriverWait(self.browser, 60).until(
             expected_conditions.title_contains(
@@ -62,38 +70,33 @@ class CookieBot(object):
             self.close_notifications()
             money = self.get_cookies()
             mps = self.get_cookies_per_second()
-            self.echo("[+] Have {} cookies and {} cookies per second, heavenly chips so far: {}".format(
-                money,
-                mps,
-                self.get_chips()
-            )
-            )
-            best_building = self.get_best_building()
-            best_upgrade = self.get_best_upgrade()
-            things = filter(lambda x: x is not None, [best_building, best_upgrade])
-            optimal = min(things, key=lambda x: x["ratio"])
-            if optimal is not None:
-                self.echo("[+] Buying {} with price {}".format(optimal["name"],
-                                                               optimal["price"]))
-                if optimal["price"] > money:
-                    difference = optimal["price"] - money
-                    self.echo("[-] Missing {} money!".format(difference))
-                    if self.config["click_missing"]:
-                        for _ in range(int(ceil(difference))):
-                            self.click_golden()
-                            self.click_cookie()
-                            if self.get_cookies() >= optimal["price"]:
-                                break
-                self.browser.execute_script(optimal["buy"])
-            else:
-                self.click_cookie(5)
+            self.echo("[+] Cookies: {}, CookiesPS: {}, Heavenly Chips: {}".format(money,
+                                                                                  mps,
+                                                                                  self.get_chips()))
+            best_building = self.get_best_building() or {}
+            best_upgrade = self.get_best_upgrade() or {}
+            # One is guaranteed to not be None.
+            optimal = min([best_building, best_upgrade],
+                          key=lambda x: x.get("ratio", (best_building or best_upgrade)["ratio"] + 1))
+            self.echo("[+] Buying one of {}, with price {}".format(optimal["name"],
+                                                                   optimal["price"]))
+            if optimal["price"] > money:
+                difference = optimal["price"] - money
+                self.echo("[-] Missing {} money!".format(difference))
+                if self.config.get("click_missing"):
+                    for _ in range(int(ceil(difference))):
+                        self.click_golden()
+                        self.click_cookie()
+                        if self.get_cookies() >= optimal["price"]:
+                            break
+            self.browser.execute_script(optimal["buy"])
             self.reset()  # Don't worry, it's auto-handled.
             iterations += 1
-            if iterations >= self.config["save_every"]:
+            if iterations >= self.config.get("save_every", 0):
                 self.echo("[+] Saved!")
                 self.save_string = self.get_save_string()
                 iterations = 0
-            time.sleep(self.config["sleep_amount"])
+            time.sleep(self.config.get("sleep_amount", 0))
 
     def click_cookie(self, amount=1):
         """
@@ -206,13 +209,13 @@ class CookieBot(object):
  
         """
         buildings = []
-        for i in range(11):
-            script_ = "return Game.ObjectsById[{}]".format(i)
-            info = self.browser.execute_script(script_)
-            name = info["name"]
-            price = info["price"]
-            mps = self.browser.execute_script(script_ + ".cps()")
-            buy = script_ + ".buy(1)"
+        available = self.browser.execute_script("return Game.ObjectsById")
+        for n, building in enumerate(available):
+            building_script = "return Game.ObjectsById[{}]".format(n)
+            name = building["name"]
+            price = building["price"]
+            mps = self.browser.execute_script(building_script + ".cps()")
+            buy = (building_script + ".buy(1)").lstrip("return ")
             # Is there a better way to calculate "value"? (the ratio)
             i_dict = {
                 "name": name,
@@ -244,7 +247,7 @@ class CookieBot(object):
             script_ = "return Game.UpgradesInStore[{}]".format(i)
             info = self.browser.execute_script(script_)
             name = info["name"]
-            if name.lower() in self.config["excluded_upgrades"]:
+            if name.lower() in self.config.get("excluded_upgrades", []):
                 continue
             price = self.browser.execute_script(script_ + ".getPrice()")
             buy = script_ + ".buy(1)"
@@ -285,9 +288,8 @@ class CookieBot(object):
         Return:
             Amount of Heavenly Chips made.
         """
-        if CookieBot.chip_amount is not None:
-            chips = self.get_cookies() / CookieBot.chip_amount
-            return chips
+        if isinstance(CookieBot.chip_amount, int):
+            return self.get_cookies() / CookieBot.chip_amount
         return 0
 
     def reset_viable(self):
@@ -296,8 +298,8 @@ class CookieBot(object):
         Return:
             A Boolean representing whether to reset or not.
         """
-        if CookieBot.chip_amount is not None:
-            return self.get_chips() >= self.config["reset_every"]
+        if isinstance(CookieBot.chip_amount, int):
+            return self.get_chips() >= self.config.get("reset_every", 1)
         return False
 
     def reset(self, override=False):
@@ -356,7 +358,8 @@ class CookieBot(object):
         """
         self.browser.execute_script("for (var k in Game.prefs) Game.prefs[k] = 0; Game.prefs[\"format\"] = 1")
         self.browser.execute_script(
-            "Game.ToggleFancy();BeautifyAll();Game.RefreshStore();Game.upgradesToRebuild=1;")
+            "Game.ToggleFancy();BeautifyAll();Game.RefreshStore();Game.upgradesToRebuild=1;"
+        )
 
     def echo(self, *args, **kwargs):
         """
@@ -369,47 +372,38 @@ class CookieBot(object):
         Extras:
             timestamp: When the message was echoed, useful if you use a logfile7etc.
         """
-        if self.first_print is None:
-            self.first_print = datetime.today().strftime("%Y-%m-%d")
-        else:
-            out = self.config.get("output_file", "")
-            if out:
-                date = datetime.today().strftime("%Y-%m-%d")
-                new_name = out.raw_name.format(date)
-                if new_name != out.name:
-                    new = open(new_name, out.mode)
-                    new.raw_name = out.raw_name
-                    self.config["output_file"] = new
-                    atexit.register(new.close)
-                    self.echo("[+] New Day!")
-        if self.config["verbose"]:
-            replaced = False
-            extra = []
-            if self.config["timestamp"]:
-                today = datetime.today()
+        extras = []
+        if self.config.get("verbose"):
+            if self.config.get("timestamp"):
                 if "time" in self.config["timestamp"]:
-                    extra.append("[{}]".format(today.strftime("%H:%M:%S")))
+                    extras.append("[{}]".format(get_date("time")))
                 if "date" in self.config["timestamp"]:
-                    extra.append("[{}]".format(today.strftime("%Y-%m-%d")))
-            if "file" not in kwargs and "output_file" in self.config and self.config["output_file"]:
-                kwargs.update({"file": self.config["output_file"]})
-                replaced = True
-            print(*tuple(extra) + args, **kwargs)
-            if replaced and random.randint(1, 100) == 12:
-                self.config["output_file"].flush()
+                    extras.append("[{}]".format(get_date("date")))
+            if "file" not in kwargs and "output_file" in self.config:
+                if self.config.get("with_date"):
+                    filename = self.config["output_file"].name
+                    if get_date("date") not in filename:
+                        old_date = date_finder.search(filename).group(0)
+                        new_name = filename.replace(old_date, get_date("date"))
+                        self.config["output_file"].close()
+                        self.config["output_file"] = open(new_name, self.config["output_file"].mode)
+                kwargs["file"] = self.config["output_file"]
+            print(*tuple(extras) + args, **kwargs)
 
-
-def main(driver_type, conf):
-    """
-    Easiest way to run the bot.
-    Arguments:
-        driver_type: What driver to use, recommended is Chrome or PhantomJS.
-        conf: The config, as seen in config.ini/config.txt
-    """
-    bot = CookieBot(driver_type, conf)
-    try:
-        bot.run()
-    except KeyboardInterrupt:
-        bot.echo("[-] Quitting...")
-    finally:
-        bot.quit()
+    @classmethod
+    def start_bot(cls, driver_type, conf, save_on_exit=True):
+        """
+        Easiest way to run the bot.
+        Arguments:
+            driver_type: What driver to use, recommended is Chrome or PhantomJS.
+            conf: The config, as seen in config.ini/config.txt
+            save_on_exit: Self Explanatory.
+        """
+        bot = cls(driver_type, conf)
+        try:
+            bot.run()
+        except KeyboardInterrupt:
+            bot.echo("[-] Quitting...")
+        finally:
+            if save_on_exit:
+                bot.quit()

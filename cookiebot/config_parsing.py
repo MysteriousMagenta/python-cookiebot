@@ -1,20 +1,19 @@
 #!/usr/bin/env python3
-from __future__ import print_function, division, with_statement
+from __future__ import with_statement
 import re
 import atexit
-from datetime import datetime
-# Basic Regexes for each type.
-# Strings only support double quotes cause yes.
-regex = {
+from cookiebot import get_date
+
+
+# Regex-es for each type supported.
+raw_regex = {
     "str": "^\s*([^=]+)\s*=\s*\"([^\"]*)\"\s*$",
     "int": "^\s*([^=]+)\s*=\s*(\d+)\s*$",
     "list": "^\s*([^=]+)\s*=\s*\[(.*?)\]\s*$",
     "bool": "^\s*([^=]+)\s*=\s*([fF][aA][lL][sS][eE]|[tT][rR][uU][eE])\s*",
     "file": "^\s*([^=]+)\s*=[fF][iI][lL][eE]\s*\((.*?)\s*,\s*(.*?)\)\s*$"
 }
-for i in regex:
-    regex[i] = re.compile(regex[i])
-
+regex = {t: re.compile(r) for r, t in raw_regex.items()}
 section_start = re.compile("^\[(.*?)\]$")
 
 
@@ -32,7 +31,7 @@ def parse_line(line, section=None):
                     data_dict[section][data.group(1)] = []
                 for elem in data.group(2).split(","):
                     elem = elem.strip()
-                    if section is  None:
+                    if section is None:
                         data_dict[data.group(1)].append(parse_line("dummy={}".format(elem))["dummy"])
                     else:
                         data_dict[section][data.group(1)].append(parse_line("dummy={}".format(elem))["dummy"])
@@ -52,18 +51,17 @@ def parse_line(line, section=None):
                 else:
                     data_dict[section][data.group(1)] = data.group(2).lower() == "true"
             elif type_ == "file":
-                filename, filemode = data.group(2), data.group(3)
-                filename = parse_line("dummy={}".format(filename))["dummy"]
-                filemode = parse_line("dummy={}".format(filemode))["dummy"]
-                if not all((filename, filemode)):
-                    return
-                if not isinstance(filename, str) or not isinstance(filemode, str):
+                filename = parse_line("dummy={}".format(data.group(2)))["dummy"]
+                filemode = parse_line("dummy={}".format(data.group(3)))["dummy"]
+                if not all(map(lambda x: isinstance(x, str), (filename, filemode))):
                     return
                 try:
-                    file_obj = open(filename.format(datetime.today().strftime("%Y-%m-%d")), filemode)
+                    file_obj = open(filename.format(get_date("date")), filemode)
                 except FileNotFoundError:
                     return
-                file_obj.raw_name = filename
+                if file_obj.name != filename:
+                    # Useful later.
+                    data_dict["with_date"] = True
                 atexit.register(file_obj.close)
                 if section is None:
                     data_dict[data.group(1)] = file_obj
